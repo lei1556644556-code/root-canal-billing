@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="根管治疗分离开单工具" />
+    <title>根管分离开单</title>
+    <style>
+      :root {
+        --ink: #132a31;
+        --muted: #617078;
+        --paper: #f4f8f7;
+        --surface: #ffffff;
+        --line: #d6e3e0;
+        --teal: #0f6b67;
+        --teal-dark: #084c4a;
+        --seafoam: #dcefe8;
+        --coral: #d76452;
+        --coral-soft: #fff1ed;
+        --gold: #d99b35;
+        --shadow: 0 18px 45px rgba(17, 57, 63, 0.09);
+      }
+
+      * { box-sizing: border-box; }
+
+      html { background: var(--paper); }
+
+      body {
+        min-width: 320px;
+        margin: 0;
+        color: var(--ink);
+        background:
+          linear-gradient(90deg, rgba(15, 107, 103, 0.035) 1px, transparent 1px) 0 0 / 36px 36px,
+          linear-gradient(rgba(15, 107, 103, 0.035) 1px, transparent 1px) 0 0 / 36px 36px,
+          var(--paper);
+        font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+      }
+
+      button, input, textarea { font: inherit; }
+
+      button { cursor: pointer; }
+
+      .shell {
+        width: min(1400px, calc(100% - 40px));
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 22px 0;
+        border-bottom: 1px solid rgba(19, 42, 49, 0.12);
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--teal-dark);
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+
+      .brand-mark {
+        position: relative;
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border: 2px solid var(--teal);
+        border-radius: 50% 50% 45% 45%;
+      }
+
+      .brand-mark::before,
+      .brand-mark::after {
+        position: absolute;
+        top: 6px;
+        width: 3px;
+        height: 15px;
+        content: "";
+        background: var(--teal);
+        border-radius: 3px;
+      }
+
+      .brand-mark::before { transform: rotate(45deg); }
+      .brand-mark::after { transform: rotate(-45deg); }
+
+      .local-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .local-dot {
+        width: 8px;
+        height: 8px;
+        background: #39a98a;
+        border-radius: 50%;
+        box-shadow: 0 0 0 4px rgba(57, 169, 138, 0.13);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 32px;
+        align-items: end;
+        padding: 54px 0 34px;
+      }
+
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 14px;
+        color: var(--teal);
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+      }
+
+      .eyebrow::before {
+        width: 28px;
+        height: 2px;
+        content: "";
+        background: var(--coral);
+      }
+
+      h1 {
+        max-width: 700px;
+        margin: 0;
+        color: var(--ink);
+        font-family: "STKaiti", "KaiTi", "Microsoft YaHei", serif;
+        font-size: clamp(38px, 5.2vw, 66px);
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        line-height: 1.1;
+      }
+
+      h1 em {
+        color: var(--teal);
+        font-style: normal;
+      }
+
+      .hero-copy {
+        max-width: 600px;
+        margin: 18px 0 0;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.7;
+      }
+
+      .quick-count {
+        display: grid;
+        grid-template-columns: auto auto;
+        gap: 14px 20px;
+        padding: 17px 20px;
+        background: var(--teal-dark);
+        color: #e9f9f4;
+        box-shadow: 7px 7px 0 var(--gold);
+      }
+
+      .quick-count strong {
+        display: block;
+        color: #ffffff;
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 31px;
+        letter-spacing: -0.08em;
+        line-height: 1;
+      }
+
+      .quick-count span {
+        display: block;
+        margin-top: 5px;
+        color: #bde1d6;
+        font-size: 12px;
+      }
+
+      .quick-count .price-marker {
+        min-width: 56px;
+        border-left: 1px solid rgba(255,255,255,0.25);
+        padding-left: 20px;
+        text-align: right;
+      }
+
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 1.48fr) minmax(340px, 0.84fr);
+        gap: 24px;
+        align-items: start;
+        padding-bottom: 48px;
+      }
+
+      .workbench, .invoice-panel {
+        background: rgba(255,255,255,0.88);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+      }
+
+      .workbench { padding: 30px; }
+
+      .section-heading {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: baseline;
+        margin-bottom: 18px;
+      }
+
+      .section-heading h2,
+      .invoice-title h2 {
+        margin: 0;
+        font-size: 19px;
+        letter-spacing: 0.02em;
+      }
+
+      .section-hint {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .choice-label {
+        display: inline-flex;
+        align-items: center;
+        min-width: 26px;
+        height: 26px;
+        justify-content: center;
+        margin-right: 8px;
+        color: var(--teal);
+        background: var(--seafoam);
+        border-radius: 50%;
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 12px;
+      }
+
+      .packages {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .package {
+        position: relative;
+        min-height: 182px;
+        padding: 20px;
+        overflow: hidden;
+        text-align: left;
+        color: var(--ink);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+      }
+
+      .package::after {
+        position: absolute;
+        right: -28px;
+        bottom: -50px;
+        width: 122px;
+        height: 122px;
+        content: "";
+        border: 1px solid rgba(15, 107, 103, 0.13);
+        border-radius: 50%;
+      }
+
+      .package:hover {
+        border-color: rgba(15, 107, 103, 0.65);
+        box-shadow: 0 10px 24px rgba(17, 57, 63, 0.1);
+        transform: translateY(-2px);
+      }
+
+      .package:focus-visible,
+      button:focus-visible,
+      input:focus-visible,
+      textarea:focus-visible {
+        outline: 3px solid rgba(217, 155, 53, 0.5);
+        outline-offset: 3px;
+      }
+
+      .package.is-selected {
+        color: #f4fffc;
+        background: var(--teal);
+        border-color: var(--teal);
+        box-shadow: 0 12px 28px rgba(15, 107, 103, 0.25);
+      }
+
+      .package.is-selected::after { border-color: rgba(255,255,255,0.22); }
+
+      .package-type {
+        position: relative;
+        z-index: 1;
+        margin: 0 0 7px;
+        color: var(--teal);
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+      }
+
+      .package.is-selected .package-type { color: #bfe9de; }
+
+      .package h3 {
+        position: relative;
+        z-index: 1;
+        max-width: 180px;
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.35;
+      }
+
+      .package-meta {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 26px;
+      }
+
+      .package-roots {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .package.is-selected .package-roots { color: #c9ece2; }
+
+      .package-price {
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 29px;
+        font-weight: 800;
+        letter-spacing: -0.07em;
+      }
+
+      .details {
+        margin-top: 34px;
+        padding-top: 27px;
+        border-top: 1px solid var(--line);
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr 0.85fr;
+        gap: 16px;
+      }
+
+      .field { display: grid; gap: 7px; }
+
+      .field--wide { grid-column: span 2; }
+
+      label {
+        color: var(--ink);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      input, textarea {
+        width: 100%;
+        color: var(--ink);
+        background: #fcfefd;
+        border: 1px solid #cddbd7;
+        border-radius: 2px;
+      }
+
+      input { height: 42px; padding: 0 11px; }
+      textarea { min-height: 78px; padding: 10px 11px; resize: vertical; }
+      input::placeholder, textarea::placeholder { color: #98a6a5; }
+      input:focus, textarea:focus { border-color: var(--teal); }
+
+      .form-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin-top: 20px;
+      }
+
+      .selected-summary {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .selected-summary strong { color: var(--teal-dark); }
+
+      .button-primary, .button-secondary, .icon-button {
+        border: 0;
+        border-radius: 2px;
+        font-weight: 800;
+        transition: transform 150ms ease, background 150ms ease;
+      }
+
+      .button-primary {
+        min-height: 44px;
+        padding: 0 19px;
+        color: #fff;
+        background: var(--teal);
+        box-shadow: 4px 4px 0 var(--gold);
+      }
+
+      .button-primary:hover { background: var(--teal-dark); transform: translate(-1px, -1px); }
+      .button-primary:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--gold); }
+
+      .invoice-panel {
+        position: sticky;
+        top: 20px;
+        overflow: hidden;
+      }
+
+      .invoice-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 15px;
+        padding: 25px 25px 19px;
+        color: #f5fffc;
+        background: var(--teal-dark);
+      }
+
+      .invoice-title p {
+        margin: 6px 0 0;
+        color: #bfddd5;
+        font-size: 13px;
+      }
+
+      .line-count {
+        padding: 5px 8px;
+        color: #fff;
+        background: rgba(255,255,255,0.12);
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .invoice-body { padding: 20px 25px 25px; }
+
+      .order-list {
+        display: grid;
+        gap: 12px;
+        min-height: 210px;
+      }
+
+      .empty-order {
+        display: grid;
+        min-height: 210px;
+        place-items: center;
+        padding: 28px 18px;
+        color: var(--muted);
+        border: 1px dashed #b5ceca;
+        text-align: center;
+      }
+
+      .empty-order svg {
+        width: 42px;
+        height: 42px;
+        margin-bottom: 10px;
+        stroke: var(--teal);
+      }
+
+      .empty-order p { margin: 0; font-size: 14px; line-height: 1.6; }
+
+      .order-line {
+        display: grid;
+        grid-template-columns: 28px 1fr auto;
+        gap: 10px;
+        align-items: start;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .line-number {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        color: var(--teal);
+        background: var(--seafoam);
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 12px;
+      }
+
+      .line-main h3 { margin: 1px 0 5px; font-size: 14px; }
+      .line-main p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+      .line-side { display: grid; gap: 6px; justify-items: end; }
+      .line-price { color: var(--teal-dark); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 16px; font-weight: 800; }
+
+      .icon-button {
+        width: 27px;
+        height: 24px;
+        color: #aa5146;
+        background: var(--coral-soft);
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .icon-button:hover { background: #ffe0d9; }
+
+      .total {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        margin-top: 20px;
+        padding-top: 18px;
+        border-top: 2px solid var(--ink);
+      }
+
+      .total span { color: var(--muted); font-size: 13px; font-weight: 800; }
+      .total strong { color: var(--teal-dark); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 34px; letter-spacing: -0.08em; line-height: 1; }
+
+      .invoice-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 24px;
+      }
+
+      .button-secondary {
+        min-height: 42px;
+        color: var(--teal-dark);
+        background: var(--seafoam);
+      }
+
+      .button-secondary:hover { background: #c9e5dc; }
+      .button-secondary[disabled], .button-primary[disabled] { cursor: not-allowed; opacity: 0.45; transform: none; box-shadow: none; }
+
+      .button-quiet {
+        width: 100%;
+        margin-top: 12px;
+        padding: 8px;
+        color: var(--muted);
+        background: transparent;
+        border: 0;
+        font-size: 13px;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .button-quiet:hover { color: var(--coral); }
+
+      .notice {
+        display: flex;
+        gap: 10px;
+        margin-top: 23px;
+        padding: 13px 14px;
+        color: #45615f;
+        background: #f0f7f4;
+        border-left: 3px solid var(--gold);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .notice b { color: var(--teal-dark); }
+
+      .toast {
+        position: fixed;
+        z-index: 10;
+        right: 24px;
+        bottom: 24px;
+        max-width: min(360px, calc(100vw - 48px));
+        padding: 13px 16px;
+        color: #fff;
+        background: var(--teal-dark);
+        box-shadow: 0 10px 28px rgba(8, 76, 74, 0.25);
+        font-size: 14px;
+        opacity: 0;
+        transform: translateY(10px);
+        pointer-events: none;
+        transition: opacity 180ms ease, transform 180ms ease;
+      }
+
+      .toast.is-visible { opacity: 1; transform: translateY(0); }
+
+      footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 15px 0 28px;
+        color: var(--muted);
+        border-top: 1px solid rgba(19, 42, 49, 0.12);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      @media (max-width: 980px) {
+        main { grid-template-columns: 1fr; }
+        .invoice-panel { position: static; }
+      }
+
+      @media (max-width: 680px) {
+        .shell { width: min(100% - 24px, 1400px); }
+        .topbar { padding: 16px 0; }
+        .local-tag { font-size: 11px; }
+        .hero { grid-template-columns: 1fr; gap: 24px; padding: 38px 0 26px; }
+        .quick-count { justify-self: start; }
+        .workbench { padding: 20px; }
+        .packages { grid-template-columns: 1fr; }
+        .form-grid { grid-template-columns: 1fr; }
+        .field--wide { grid-column: auto; }
+        .form-foot { align-items: stretch; flex-direction: column; }
+        .button-primary { width: 100%; }
+        footer { flex-direction: column; gap: 8px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+      }
+
+      @media print {
+        @page { size: A4; margin: 15mm; }
+        body { background: #fff; }
+        .topbar, .hero, .workbench, footer, .invoice-actions, .button-quiet, .notice, .icon-button, .toast { display: none !important; }
+        .shell { width: 100%; }
+        main { display: block; padding: 0; }
+        .invoice-panel { position: static; box-shadow: none; border: 1px solid #9da9a7; }
+        .invoice-head { padding: 18px 20px; background: #fff; color: var(--ink); border-bottom: 2px solid var(--ink); }
+        .invoice-title p { color: var(--muted); }
+        .line-count { color: var(--ink); background: #fff; border: 1px solid var(--line); }
+        .invoice-body { padding: 18px 20px; }
+        .order-list, .empty-order { min-height: auto; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span>根管 · 分离开单</span></div>
+        <div class="local-tag"><span class="local-dot" aria-hidden="true"></span><span>数据仅保存在当前浏览器</span></div>
+      </header>
+
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">ROOT CANAL BILLING / LOCAL TOOL</p>
+          <h1 id="page-title">选准套餐，<em>一张单</em>讲清收费。</h1>
+          <p class="hero-copy">为磨牙与前牙根管治疗准备的固定价分离开单页。每一笔治疗保留牙位、根管数和套餐总价，打印时一目了然。</p>
+        </div>
+        <div class="quick-count" aria-label="当前订单概览">
+          <div><strong id="header-count">0</strong><span>本次开单项目</span></div>
+          <div class="price-marker"><strong id="header-total">¥0</strong><span>本次合计</span></div>
+        </div>
+      </section>
+
+      <main>
+        <section class="workbench" aria-label="开单编辑区">
+          <div class="section-heading">
+            <h2><span class="choice-label">01</span>选择治疗套餐</h2>
+            <span class="section-hint">每次添加 1 个固定价项目</span>
+          </div>
+
+          <div class="packages" id="package-list" role="radiogroup" aria-label="治疗套餐">
+            <button class="package" type="button" role="radio" aria-checked="false" data-id="molar-711">
+              <p class="package-type">磨牙 · 3 个根管</p>
+              <h3>磨牙根管治疗套餐（711）</h3>
+              <div class="package-meta"><span class="package-roots">固定套餐总价</span><span class="package-price">¥711</span></div>
+            </button>
+            <button class="package" type="button" role="radio" aria-checked="false" data-id="molar-900">
+              <p class="package-type">磨牙 · 3 个根管</p>
+              <h3>磨牙根管治疗套餐（900）</h3>
+              <div class="package-meta"><span class="package-roots">固定套餐总价</span><span class="package-price">¥900</span></div>
+            </button>
+            <button class="package" type="button" role="radio" aria-checked="false" data-id="anterior-316">
+              <p class="package-type">前牙 · 1 个根管</p>
+              <h3>前牙根管治疗套餐（316）</h3>
+              <div class="package-meta"><span class="package-roots">固定套餐总价</span><span class="package-price">¥316</span></div>
+            </button>
+            <button class="package" type="button" role="radio" aria-checked="false" data-id="anterior-400">
+              <p class="package-type">前牙 · 1 个根管</p>
+              <h3>前牙根管治疗套餐（400）</h3>
+              <div class="package-meta"><span class="package-roots">固定套餐总价</span><span class="package-price">¥400</span></div>
+            </button>
+          </div>
+
+          <section class="details" aria-labelledby="detail-title">
+            <div class="section-heading">
+              <h2 id="detail-title"><span class="choice-label">02</span>填写本次信息</h2>
+              <span class="section-hint">带 * 为打印单据建议填写项</span>
+            </div>
+
+            <form id="billing-form" novalidate>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="patient">患者姓名 *</label>
+                  <input id="patient" name="patient" autocomplete="name" placeholder="例如：王小明" />
+                </div>
+                <div class="field">
+                  <label for="tooth">牙位 *</label>
+                  <input id="tooth" name="tooth" placeholder="例如：左下第一磨牙" />
+                </div>
+                <div class="field">
+                  <label for="doctor">开单医生</label>
+                  <input id="doctor" name="doctor" placeholder="例如：张医生" />
+                </div>
+                <div class="field">
+                  <label for="bill-date">开单日期</label>
+                  <input id="bill-date" name="billDate" type="date" />
+                </div>
+                <div class="field field--wide">
+                  <label for="note">备注</label>
+                  <textarea id="note" name="note" placeholder="可记录复诊说明、特殊情况等"></textarea>
+                </div>
+              </div>
+              <div class="form-foot">
+                <p class="selected-summary" id="selected-summary">请先选择一个治疗套餐。</p>
+                <button class="button-primary" id="add-item" type="submit">加入本次开单</button>
+              </div>
+            </form>
+          </section>
+        </section>
+
+        <aside class="invoice-panel" aria-labelledby="invoice-title">
+          <div class="invoice-head">
+            <div class="invoice-title">
+              <h2 id="invoice-title">本次开单</h2>
+              <p id="invoice-date">开单日期：—</p>
+            </div>
+            <span class="line-count" id="line-count">0 项</span>
+          </div>
+          <div class="invoice-body">
+            <div class="order-list" id="order-list" aria-live="polite">
+              <div class="empty-order">
+                <div>
+                  <svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M14 7h15l7 7v27H14z" stroke-width="2"/><path d="M29 7v9h8M19 24h12M19 30h12M19 36h7" stroke-width="2" stroke-linecap="round"/></svg>
+                  <p>还没有开单项目<br />选择套餐后加入这里</p>
+                </div>
+              </div>
+            </div>
+            <div class="total"><span>本次合计</span><strong id="total-price">¥0</strong></div>
+            <div class="invoice-actions">
+              <button class="button-secondary" id="print-order" type="button" disabled>打印清单</button>
+              <button class="button-secondary" id="new-order" type="button" disabled>新建单据</button>
+            </div>
+            <button class="button-quiet" id="clear-order" type="button" disabled>清空本次所有项目</button>
+            <div class="notice"><span aria-hidden="true">i</span><span><b>价格口径：</b>此页按指定套餐总价开单。磨牙固定为 3 个根管；前牙固定为 1 个根管。</span></div>
+          </div>
+        </aside>
+      </main>
+
+      <footer>
+        <span>根管治疗分离开单 · 本地单页工具</span>
+        <span>套餐总价以当前页面配置为准，请按机构实际收费规则复核。</span>
+      </footer>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      (() => {
+        const packages = {
+          "molar-711": { id: "molar-711", treatment: "磨牙根管治疗套餐（711）", roots: 3, price: 711 },
+          "molar-900": { id: "molar-900", treatment: "磨牙根管治疗套餐（900）", roots: 3, price: 900 },
+          "anterior-316": { id: "anterior-316", treatment: "前牙根管治疗套餐（316）", roots: 1, price: 316 },
+          "anterior-400": { id: "anterior-400", treatment: "前牙根管治疗套餐（400）", roots: 1, price: 400 }
+        };
+
+        const storageKey = "root-canal-billing-order-v1";
+        const packageButtons = [...document.querySelectorAll(".package")];
+        const form = document.querySelector("#billing-form");
+        const patientInput = document.querySelector("#patient");
+        const toothInput = document.querySelector("#tooth");
+        const doctorInput = document.querySelector("#doctor");
+        const dateInput = document.querySelector("#bill-date");
+        const noteInput = document.querySelector("#note");
+        const orderList = document.querySelector("#order-list");
+        const totalPrice = document.querySelector("#total-price");
+        const lineCount = document.querySelector("#line-count");
+        const headerCount = document.querySelector("#header-count");
+        const headerTotal = document.querySelector("#header-total");
+        const selectedSummary = document.querySelector("#selected-summary");
+        const invoiceDate = document.querySelector("#invoice-date");
+        const printButton = document.querySelector("#print-order");
+        const newOrderButton = document.querySelector("#new-order");
+        const clearButton = document.querySelector("#clear-order");
+        const toast = document.querySelector("#toast");
+
+        let selectedPackageId = null;
+        let order = loadOrder();
+        let toastTimer;
+
+        dateInput.value = localDate();
+
+        function localDate() {
+          const now = new Date();
+          const offset = now.getTimezoneOffset() * 60000;
+          return new Date(now - offset).toISOString().slice(0, 10);
+        }
+
+        function formatMoney(value) {
+          return `¥${new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 0 }).format(value)}`;
+        }
+
+        function formatDate(value) {
+          if (!value) return "—";
+          const [year, month, day] = value.split("-");
+          return `${year} 年 ${Number(month)} 月 ${Number(day)} 日`;
+        }
+
+        function escapeHtml(value) {
+          return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+        }
+
+        function loadOrder() {
+          try {
+            const parsed = JSON.parse(localStorage.getItem(storageKey));
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        }
+
+        function saveOrder() {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(order));
+          } catch {
+            showToast("当前浏览器无法保存开单记录，但本次单据仍可打印。");
+          }
+        }
+
+        function selectPackage(id) {
+          selectedPackageId = id;
+          const selected = packages[id];
+          packageButtons.forEach((button) => {
+            const isSelected = button.dataset.id === id;
+            button.classList.toggle("is-selected", isSelected);
+            button.setAttribute("aria-checked", String(isSelected));
+          });
+          selectedSummary.innerHTML = `已选：<strong>${selected.treatment} · ${selected.roots} 个根管 · ${formatMoney(selected.price)}</strong>`;
+        }
+
+        function renderOrder() {
+          const count = order.length;
+          const total = order.reduce((sum, item) => sum + item.price, 0);
+          lineCount.textContent = `${count} 项`;
+          headerCount.textContent = count;
+          totalPrice.textContent = formatMoney(total);
+          headerTotal.textContent = formatMoney(total);
+          printButton.disabled = count === 0;
+          newOrderButton.disabled = count === 0;
+          clearButton.disabled = count === 0;
+
+          const newestDate = order.at(-1)?.billDate || dateInput.value;
+          invoiceDate.textContent = `开单日期：${formatDate(newestDate)}`;
+
+          if (!count) {
+            orderList.innerHTML = `<div class="empty-order"><div><svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M14 7h15l7 7v27H14z" stroke-width="2"/><path d="M29 7v9h8M19 24h12M19 30h12M19 36h7" stroke-width="2" stroke-linecap="round"/></svg><p>还没有开单项目<br />选择套餐后加入这里</p></div></div>`;
+            return;
+          }
+
+          orderList.innerHTML = order.map((item, index) => {
+            const person = item.patient ? `患者：${escapeHtml(item.patient)}` : "患者信息未填写";
+            const tooth = item.tooth ? ` · 牙位：${escapeHtml(item.tooth)}` : "";
+            const extra = item.doctor ? ` · 开单：${escapeHtml(item.doctor)}` : "";
+            const note = item.note ? `<p>备注：${escapeHtml(item.note)}</p>` : "";
+            return `<article class="order-line"><span class="line-number">${String(index + 1).padStart(2, "0")}</span><div class="line-main"><h3>${escapeHtml(item.treatment)} · ${item.roots} 个根管</h3><p>${person}${tooth}${extra}</p>${note}</div><div class="line-side"><strong class="line-price">${formatMoney(item.price)}</strong><button class="icon-button" type="button" data-remove="${item.uid}" aria-label="删除第 ${index + 1} 项">×</button></div></article>`;
+          }).join("");
+        }
+
+        function showToast(message) {
+          window.clearTimeout(toastTimer);
+          toast.textContent = message;
+          toast.classList.add("is-visible");
+          toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 2600);
+        }
+
+        packageButtons.forEach((button) => {
+          button.addEventListener("click", () => selectPackage(button.dataset.id));
+        });
+
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          if (!selectedPackageId) {
+            showToast("请先选择一个治疗套餐。");
+            document.querySelector("#package-list").scrollIntoView({ behavior: "smooth", block: "center" });
+            return;
+          }
+
+          const selected = packages[selectedPackageId];
+          order.push({
+            ...selected,
+            uid: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            patient: patientInput.value.trim(),
+            tooth: toothInput.value.trim(),
+            doctor: doctorInput.value.trim(),
+            billDate: dateInput.value,
+            note: noteInput.value.trim()
+          });
+          saveOrder();
+          renderOrder();
+          noteInput.value = "";
+          showToast(`${selected.treatment}已加入本次开单。`);
+        });
+
+        orderList.addEventListener("click", (event) => {
+          const removeButton = event.target.closest("[data-remove]");
+          if (!removeButton) return;
+          order = order.filter((item) => item.uid !== removeButton.dataset.remove);
+          saveOrder();
+          renderOrder();
+          showToast("已删除该开单项目。");
+        });
+
+        clearButton.addEventListener("click", () => {
+          if (!order.length) return;
+          if (!window.confirm("确定清空本次所有开单项目吗？")) return;
+          order = [];
+          saveOrder();
+          renderOrder();
+          showToast("本次开单已清空。");
+        });
+
+        newOrderButton.addEventListener("click", () => {
+          if (!order.length) return;
+          if (!window.confirm("确定新建单据吗？当前项目将从本次清单中移除。")) return;
+          order = [];
+          saveOrder();
+          form.reset();
+          dateInput.value = localDate();
+          selectedPackageId = null;
+          packageButtons.forEach((button) => {
+            button.classList.remove("is-selected");
+            button.setAttribute("aria-checked", "false");
+          });
+          selectedSummary.textContent = "请先选择一个治疗套餐。";
+          renderOrder();
+          showToast("已新建空白单据。");
+        });
+
+        printButton.addEventListener("click", () => {
+          if (!order.length) return;
+          window.print();
+        });
+
+        renderOrder();
+      })();
+    </script>
+  </body>
+</html>
