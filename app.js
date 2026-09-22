@@ -35,6 +35,13 @@
     treatmentSelect: document.querySelector("#treatment-select"),
     branchSelect: document.querySelector("#root-branch"),
     phaseSelect: document.querySelector("#root-phase"),
+    branchField: document.querySelector("#branch-field"),
+    phaseField: document.querySelector("#phase-field"),
+    toothTypeField: document.querySelector("#tooth-type-field"),
+    patientTypeField: document.querySelector("#patient-type-field"),
+    rootConditions: document.querySelector("#root-conditions"),
+    rootCountField: document.querySelector("#root-count-field"),
+    rootLinkNote: document.querySelector("#root-link-note"),
     rootToothType: document.querySelector("#root-tooth-type"),
     rootPatientType: document.querySelector("#root-patient-type"),
     rootAnomaly: document.querySelector("#root-anomaly"),
@@ -158,7 +165,10 @@
     const treatment = treatments.find(item => item.id === context.treatmentId);
     const branch = treatment?.branches.find(item => item.id === context.branchId);
     const phase = branch?.phases.find(item => item.id === context.phaseId);
-    return [treatment?.name, branch?.name, phase?.name].filter(Boolean).join(" · ");
+    const labels = [treatment?.name];
+    if ((treatment?.branches.length || 0) > 1) labels.push(branch?.name);
+    if ((branch?.phases.length || 0) > 1) labels.push(phase?.name);
+    return labels.filter(Boolean).join(" · ");
   }
 
   function setOptions(select, items, selectedValue) {
@@ -180,6 +190,19 @@
     setOptions(el.phaseSelect, branch?.phases || [], selectedValue || el.phaseSelect.value);
   }
 
+  function updateWorkflowControlVisibility() {
+    const treatment = currentTreatment();
+    const branch = currentBranch();
+    const isRootCanal = treatment?.id === "root-canal";
+    el.branchField.classList.toggle("is-hidden", (treatment?.branches.length || 0) <= 1);
+    el.phaseField.classList.toggle("is-hidden", (branch?.phases.length || 0) <= 1);
+    el.toothTypeField.classList.toggle("is-hidden", !isRootCanal);
+    el.patientTypeField.classList.toggle("is-hidden", !isRootCanal);
+    el.rootConditions.classList.toggle("is-hidden", !isRootCanal);
+    el.rootCountField.classList.toggle("is-hidden", !isRootCanal);
+    el.rootLinkNote.classList.toggle("is-hidden", !isRootCanal);
+  }
+
   function matchesWhen(when = {}) {
     const context = {
       patient: el.rootPatientType.value,
@@ -191,16 +214,17 @@
   }
 
   function renderPrintContext() {
+    const isRootCanal = currentTreatment()?.id === "root-canal";
     const fields = [
       `患者：${el.patient.value.trim() || "未填写"}`,
       `病历号：${el.medicalNo.value.trim() || "未填写"}`,
       `治疗：${contextLabels() || "未选择"}`,
       `牙位：${el.tooth.value.trim() || "未填写"}`,
-      `根管数：${currentRoots()} 根`,
+      isRootCanal ? `根管数：${currentRoots()} 根` : "",
       `诊断：${el.diagnosis.value}`,
       `开单医生：${el.doctor.value.trim() || "未填写"}`,
       `日期：${el.date.value || "未填写"}`
-    ];
+    ].filter(Boolean);
     el.printContext.textContent = fields.join("　｜　");
   }
 
@@ -358,8 +382,22 @@
       el.workflowOptions.innerHTML = `<div class="workflow-empty">尚未加载治疗流程规则。</div>`;
       return;
     }
-    const definitions = phase.items.filter(item => matchesWhen(item.when));
-    el.workflowTitle.textContent = `${treatment.name}流程`;
+    updateWorkflowControlVisibility();
+    const baseDefinitions = phase.items.filter(item => matchesWhen(item.when));
+    const definitions = treatment.status === "目录分类"
+      ? baseDefinitions.flatMap(definition => [
+          definition,
+          ...variants
+            .filter(item => item.parent === definition.code)
+            .map(item => ({
+              code: item.code,
+              variant: true,
+              reason: `附件${item.type === "add" ? "加收" : item.type === "reduce" ? "减收" : "扩展"}项，须依附主项目`,
+              evidence: "福建附件分项"
+            }))
+        ])
+      : baseDefinitions;
+    el.workflowTitle.textContent = `${treatment.name}开单`;
     el.workflowBadge.textContent = `${treatment.status} · v${treatment.version}`;
     el.workflowNote.textContent = branch.note;
     el.workflowSource.textContent = `规则来源：${treatment.source}`;
