@@ -1,38 +1,46 @@
 (() => {
   const catalog = Array.isArray(window.FJ_CATALOG) ? window.FJ_CATALOG : [];
-  const definitions = items => items.map(item => ({
-    code: item.code,
-    reason: "按本次实际实施情况选择",
-    evidence: `福建附件主项目第 ${item.n} 项`
-  }));
-  const phase = (id, name, items, hint = "仅选择本次实际实施项目") => ({
+  const byNumber = new Map(catalog.map(item => [item.n, item]));
+  const definitions = numbers => numbers.map(number => {
+    const item = byNumber.get(number);
+    if (!item) throw new Error(`福建附件主项目第 ${number} 项未录入目录`);
+    return {
+      code: item.code,
+      reason: "此处仅为治疗用途索引，临床适用性待院方确认",
+      evidence: `福建附件主项目第 ${number} 项；临床归类待确认`,
+      priceEvidenceLevel: "A",
+      clinicalEvidenceLevel: "C"
+    };
+  });
+  const phase = (id, name, numbers, hint = "仅供查阅，不可直接开单") => ({
     id,
     name,
     hint,
-    items: definitions(items)
+    items: definitions(numbers)
   });
-  const branch = (id, name, items, note) => ({
+  const branch = (id, name, numbers, note) => ({
     id,
     name,
-    note: note || "本分类只缩小可选项目范围，不会自动加入；请按本次真实实施情况选择。",
-    phases: [phase(`${id}-items`, "可选收费项目", items)]
+    status: "目录分类",
+    note: note || "本路径是待审的治疗用途索引，不代表这些项目在同次就诊可同时收费。",
+    phases: [phase(`${id}-items`, "相关价格项目（不可开单）", numbers)]
   });
   const treatment = (id, name, branches) => ({
     id,
     name,
-    version: 1,
+    version: 3,
     status: "目录分类",
-    source: "《闽医保〔2026〕45号》附件一；仅按治疗用途归类，不代表项目可以同时开立",
+    source: "《闽医保〔2026〕45号》附件一确定项目名称与价格；治疗路径归类为待审模板，不自动生成收费候选",
     conditions: [],
     branches
   });
 
   const rootCanal = {
     id: "root-canal",
-    name: "根管治疗",
-    version: 1,
-    status: "已整理",
-    source: "《闽医保〔2026〕45号》附件一；医院后台根管套餐仅用于核验项目和计量方式",
+    name: "牙髓与根尖治疗（含根管）",
+    version: 3,
+    status: "临床流程待确认",
+    source: "《闽医保〔2026〕45号》附件一；医院后台旧套餐仅作操作示例，不作为新政策计量依据",
     conditions: [
       { id: "patient", label: "患者条件", type: "select", options: [{ value: "adult", label: "成人" }, { value: "child", label: "儿童（≤6周岁）" }] },
       { id: "tooth", label: "牙体类型", type: "select", options: [{ value: "permanent", label: "恒牙" }, { value: "primary", label: "乳牙" }] },
@@ -43,37 +51,23 @@
       {
         id: "routine",
         name: "常规根管治疗",
-        note: "按本次实际完成的就诊环节开单；未实施的检查、预备、冲洗、封药或充填不得提前加入。",
+        note: "本次实际做了哪些操作就选哪些。冲洗/封药的计价单位为根管，但同次多根管如何计次仍待福建院方确认；当前仅按医生逐项填写的实际数量演示，不自动带入。",
         phases: [
           {
-            id: "assessment",
-            name: "检查与术前",
-            hint: "仅选择实际完成的检查",
+            id: "current-visit",
+            name: "本次实际实施操作",
+            hint: "逐项填写本次实际根管数量",
             items: [
-              { code: "012406000010000", reason: "实际完成牙髓活力检查时选择", evidence: "福建附件主项目" }
-            ]
-          },
-          {
-            id: "stage-1",
-            name: "第1期：预备、冲洗与封药",
-            hint: "选择本次实际实施项目",
-            items: [
+              { code: "012406000010000", reason: "实际完成牙髓活力检查时选择", evidence: "福建附件主项目" },
               { code: "013105010010000", reason: "实际使用橡皮障时选择", evidence: "福建附件主项目" },
               { code: "013105010030000", reason: "实际实施牙髓失活时选择", evidence: "福建附件主项目" },
               { code: "013105010030001", variant: true, when: { patient: "child" }, reason: "儿童牙髓失活加收", evidence: "福建附件加收项" },
-              { code: "013105010050000", required: true, reason: "按实际根管数计量", evidence: "福建附件主项目" },
+              { code: "013105010050000", reason: "按本次实际预备的根管数计量", evidence: "福建附件主项目" },
               { code: "013105010050001", variant: true, when: { patient: "child" }, reason: "儿童根管预备加收", evidence: "福建附件加收项" },
               { code: "013105010050011", variant: true, when: { anomaly: true }, reason: "根管异常加收", evidence: "福建附件加收项" },
-              { code: "013105010060000", required: true, reason: "按实际治疗次计量", evidence: "福建附件主项目；医院后台计量核验" },
-              { code: "013105010060100", variant: true, when: { medication: true }, reason: "实际实施根管封药时选择", evidence: "福建附件扩展项" }
-            ]
-          },
-          {
-            id: "stage-2",
-            name: "第2期：根管充填",
-            hint: "选择本次实际实施项目",
-            items: [
-              { code: "013105010070000", required: true, reason: "按实际根管数计量", evidence: "福建附件主项目" },
+              { code: "013105010060000", reason: "按本次实际冲洗的根管数计量", evidence: "福建附件主项目第15项，计价单位为根管" },
+              { code: "013105010060100", variant: true, when: { medication: true }, reason: "实际实施封药时替代冲洗项目，按根管计量", evidence: "福建附件扩展项，计价单位为根管" },
+              { code: "013105010070000", reason: "按本次实际充填的根管数计量", evidence: "福建附件主项目" },
               { code: "013105010070001", variant: true, when: { patient: "child" }, reason: "儿童根管充填加收", evidence: "福建附件加收项" },
               { code: "013105010070011", variant: true, when: { anomaly: true }, reason: "根管异常加收", evidence: "福建附件加收项" },
               { code: "013105010070100", variant: true, when: { tooth: "primary" }, reason: "乳牙根管充填扩展项", evidence: "福建附件扩展项" }
@@ -99,13 +93,12 @@
       {
         id: "retreat",
         name: "根管再治疗",
-        note: "独立治疗类型；不自动叠加常规根管预备、冲洗或充填。",
+        note: "再治疗主项不自动带入预备、冲洗或充填；后续这些项目能否另计，待福建医院牙体牙髓科及医保物价人员确认，并非系统认定一律禁止。",
         phases: [{
           id: "retreatment",
           name: "根管再治疗项目",
           hint: "选择实际实施项目",
           items: [
-            { code: "012406000010000", reason: "实际完成牙髓活力检查时选择", evidence: "福建附件主项目" },
             { code: "013105010080000", required: true, reason: "按实际根管数计量", evidence: "福建附件主项目" }
           ]
         }]
@@ -119,105 +112,163 @@
           name: "异物取出项目",
           hint: "选择实际实施项目",
           items: [
-            { code: "012406000010000", reason: "实际完成牙髓活力检查时选择", evidence: "福建附件主项目" },
             { code: "013105010090000", required: true, reason: "按实际根管数计量", evidence: "福建附件主项目" },
             { code: "013105010090001", variant: true, reason: "仅根尖段异物取出时加收", evidence: "福建附件加收项" }
           ]
         }]
-      }
+      },
+      branch("apical-induction", "根尖诱导成形", [81], "非根尖外科手术；治疗适用条件待院方确认。"),
+      branch("apical-barrier", "根尖屏障 / 髓腔穿孔修补", [82], "扩展项替代主项，临床路径待院方确认。"),
+      branch("apical-surgery", "根尖外科手术", [83]),
+      branch("pulp-preservation", "活髓保存 / 盖髓", [19]),
+      branch("pulp-regeneration", "牙髓再生", [20]),
+      branch("dry-pulp", "干髓治疗", [13])
     ]
   };
 
-  const diagnosis = catalog.filter(item => item.cat === "诊查");
-  const dentalPulp = catalog.filter(item => item.cat === "牙体牙髓");
-  const periodontalAll = catalog.filter(item => item.cat === "牙周");
-  const orthodonticAll = catalog.filter(item => item.cat === "正畸");
-  const restorationAll = catalog.filter(item => item.cat === "修复");
-  const surgeryAll = catalog.filter(item => item.cat === "外科");
-
-  const mucosalNames = new Set(["唾液腺药物灌注费", "口腔黏膜病局部药物治疗费", "唾液腺导管取石费", "唾液腺导管治疗费"]);
-  const periodontalSurgeryNames = new Set(["根面平整费", "牙周翻瓣费", "牙龈成形费", "游离龈移植费", "引导性牙周组织再生费"]);
-  const orthodonticSurgeryNames = new Set(["正畸支抗钉植入费", "阻生牙开窗助萌费", "口腔牵引钉植入费", "口腔牵引钉取出费", "牙周纤维环状切断费", "皮质骨切开费"]);
-  const extractionNames = new Set(["牙拔除费", "阻生牙拔除费", "阻生牙牙冠切除费", "拔牙创搔刮费", "阻生牙龈瓣修整费", "预防性拔牙窝组织封闭费", "牙移植费"]);
-  const removablePattern = /全口义齿|可摘局部义齿|赝复体/;
-
   const examinationTreatment = treatment("examination", "检查与评估", [
-    branch("pulp-exam", "牙髓与一般检查", diagnosis.filter(item => /牙髓|唾液腺/.test(item.name))),
-    branch("periodontal-exam", "牙周检查", diagnosis.filter(item => /牙周/.test(item.name))),
-    branch("function-exam", "咬合与功能检查", diagnosis.filter(item => !/牙髓|唾液腺|牙周/.test(item.name)))
+    branch("pulp-exam", "牙髓检查", [1]),
+    branch("periodontal-exam", "牙周检查", [3, 4, 5], "全口系统检查与探诊、指数检查的并收限制须按附件及诊次核验。"),
+    branch("function-exam", "咬合 / 下颌功能检查", [2, 6, 7, 8])
   ]);
 
-  const restorativeTreatment = treatment("restorative", "补牙与牙体保存", [
-    branch("pulp-preservation", "牙髓保存与再生", dentalPulp.filter(item => /干髓|活髓保存|牙髓再生/.test(item.name))),
-    branch("filling", "充填与形态修复", dentalPulp.filter(item => /缺损直接粘接|前牙形态|预成冠/.test(item.name))),
-    branch("prevention", "防龋与脱敏", dentalPulp.filter(item => /窝沟封闭|氟防龋|牙脱敏/.test(item.name))),
-    branch("whitening", "牙齿漂白", dentalPulp.filter(item => /漂白/.test(item.name)))
+  const restorativeTreatment = treatment("restorative", "牙体保存、充填与预防", [
+    branch("direct-restoration", "牙体缺损直接粘接修复", [21]),
+    branch("anterior-shape", "前牙形态修复", [22]),
+    branch("preformed-crown", "预成冠修复", [28]),
+    branch("prevention", "防龋", [23, 24]),
+    branch("desensitization", "牙脱敏", [25]),
+    branch("whitening", "牙齿漂白 / 脱色", [26, 27])
   ]);
 
-  const periodontalTreatment = treatment("periodontal", "洁牙与牙周治疗", [
-    branch("cleaning", "洁牙与基础治疗", periodontalAll.filter(item => /洁治|抛光|喷砂|龈下刮治/.test(item.name))),
-    branch("supportive", "牙周辅助处置", periodontalAll.filter(item => !/洁治|抛光|喷砂|龈下刮治/.test(item.name) && !mucosalNames.has(item.name))),
-    branch("periodontal-surgery", "牙周手术", surgeryAll.filter(item => periodontalSurgeryNames.has(item.name)))
+  const periodontalBasic = treatment("periodontal-basic", "牙周基础治疗", [
+    branch("scaling", "龈上洁治", [35]),
+    branch("polishing", "牙面抛光", [36]),
+    branch("sandblasting", "牙面喷砂", [37]),
+    branch("subgingival", "龈下刮治", [38]),
+    branch("root-planing", "根面平整（非手术）", [106], "与同牙本次牙周翻瓣及同部位牙周冲洗上药存在附件限制。"),
+    branch("periodontal-irrigation", "牙周冲洗上药", [33]),
+    branch("periodontal-dressing", "牙周塞治 / 局部止血", [34]),
+    branch("splinting", "松牙固定 / 拆除", [39, 40])
+  ]);
+  const periodontalSurgery = treatment("periodontal-surgery", "牙周手术", [
+    branch("flap", "牙周翻瓣", [107]),
+    branch("gingival-contour", "牙龈成形", [108]),
+    branch("gingival-graft", "游离龈移植", [109]),
+    branch("guided-regeneration", "引导性牙周组织再生", [110]),
+    branch("fiberotomy", "牙周纤维环状切断", [111], "可作为正畸辅助操作交叉引用，实际适应证待院方确认。")
   ]);
 
   const extractionTreatment = treatment("extraction", "拔牙与拔牙创处理", [
-    branch("simple-extraction", "普通拔牙", surgeryAll.filter(item => item.name === "牙拔除费")),
-    branch("impacted-extraction", "阻生牙与拔牙创处理", surgeryAll.filter(item => extractionNames.has(item.name) && !["牙拔除费", "牙移植费"].includes(item.name))),
-    branch("tooth-transplant", "牙移植", surgeryAll.filter(item => item.name === "牙移植费"))
+    branch("simple-extraction", "普通牙拔除", [84], "乳牙同编码条件价11元；同部位不得再收儿童加收，当前仅查阅。"),
+    branch("impacted-extraction", "阻生牙拔除", [85]),
+    branch("impacted-eruption", "阻生牙开窗助萌（保留牙）", [86], "不是阻生牙拔除的附加项目；正畸路径可交叉引用。"),
+    branch("coronectomy", "阻生牙牙冠切除", [87]),
+    branch("socket-curettage", "拔牙创搔刮", [88], "仅限拔牙创愈合不良，不是当次拔牙默认候选。"),
+    branch("operculum", "阻生牙龈瓣修整", [89], "与同部位阻生牙拔除明确互斥。"),
+    branch("socket-seal", "预防性拔牙窝组织封闭", [90]),
+    branch("transplant", "牙移植 / 再植", [91])
   ]);
 
-  const oralSurgeryTreatment = treatment("oral-surgery", "口腔外科与囊肿", [
-    branch("apical-surgery", "根尖与根周手术", surgeryAll.filter(item => /根尖/.test(item.name))),
-    branch("lesion-cyst", "肿物、颌骨病变与囊肿", surgeryAll.filter(item => /肿物|颌骨病变|囊肿/.test(item.name))),
-    branch("soft-tissue", "软组织与引流", surgeryAll.filter(item => /系带|黏膜切开引流|口腔骨突/.test(item.name))),
-    branch("trauma-reconstruction", "创伤与修复性外科", [
-      ...dentalPulp.filter(item => /颌间结扎/.test(item.name)),
-      ...surgeryAll.filter(item => !extractionNames.has(item.name) && !periodontalSurgeryNames.has(item.name) && !orthodonticSurgeryNames.has(item.name) && !mucosalNames.has(item.name) && !/根尖|肿物|颌骨病变|囊肿|系带|黏膜切开引流|口腔骨突/.test(item.name))
-    ])
+  const oralSurgeryTreatment = treatment("oral-surgery", "其他口腔外科", [
+    branch("benign-lesion", "口腔良性肿物切除", [92]),
+    branch("frenum", "口腔系带修整", [93]),
+    branch("jaw-lesion", "颌骨病变刮切", [94, 95]),
+    branch("jaw-cyst", "颌骨囊肿减压", [96]),
+    branch("traction-pins", "牵引钉植入 / 取出", [97, 98]),
+    branch("bone-contour", "口腔骨突修整", [99]),
+    branch("alveolar-fracture", "牙槽突骨折复位固定", [100]),
+    branch("mucosal-drainage", "黏膜切开引流", [101, 102]),
+    branch("nerve-exploration", "下牙槽神经探查解剖", [103]),
+    branch("oroantral-fistula", "口腔上颌窦瘘修补", [104]),
+    branch("free-soft-tissue", "口内游离软组织移植", [105]),
+    branch("jaw-fixation", "颌间结扎 / 拆除", [29, 30]),
+    branch("corticotomy", "皮质骨切开", [112])
   ]);
 
-  const fixedRestorationTreatment = treatment("fixed-restoration", "固定修复与冠桥", [
-    branch("fixed-build", "固定修复制作", restorationAll.filter(item => !removablePattern.test(item.name) && !/拆除|维护/.test(item.name))),
-    branch("fixed-maintenance", "修复体拆除与维护", restorationAll.filter(item => /拆除|维护/.test(item.name)))
+  const fixedRestorationTreatment = treatment("fixed-restoration", "固定修复", [
+    branch("temporary-fixed", "临时固定修复", [68]),
+    branch("fixed-build", "修复体固定修复", [69]),
+    branch("post-core", "桩核修复", [70]),
+    branch("attachment", "附着体修复", [71]),
+    branch("removal", "修复体拆除", [78], "25%/50%/100%计价条件待结构化，不可按普通数量乘价开单。"),
+    branch("maintenance", "修复体维护", [79])
   ]);
 
-  const removableRestorationTreatment = treatment("removable-restoration", "活动修复与义齿", [
-    branch("denture", "全口与局部义齿", restorationAll.filter(item => /全口义齿|可摘局部义齿/.test(item.name))),
-    branch("prosthesis", "颌面缺损赝复", restorationAll.filter(item => /赝复体/.test(item.name)))
+  const removableRestorationTreatment = treatment("removable-restoration", "活动修复与赝复", [
+    branch("full-denture", "全口义齿", [72]),
+    branch("acrylic-denture", "胶连可摘局部义齿", [73]),
+    branch("cast-denture", "铸造支架可摘局部义齿", [74]),
+    branch("jaw-prosthesis", "颌骨 / 颞部缺损赝复体", [75, 76], "常规与复杂是不同条件类型，不能默认并收。"),
+    branch("face-prosthesis", "面部缺损赝复体", [77])
   ]);
 
   const orthodonticTreatment = treatment("orthodontics", "正畸治疗", [
-    branch("primary-ortho", "乳牙期矫治", orthodonticAll.filter(item => item.name.startsWith("乳牙期"))),
-    branch("mixed-ortho", "替牙期矫治", orthodonticAll.filter(item => item.name.startsWith("替牙期"))),
-    branch("permanent-ortho", "恒牙期矫治", orthodonticAll.filter(item => item.name.startsWith("恒牙期"))),
-    branch("special-ortho", "特殊正畸与保持", [
-      ...orthodonticAll.filter(item => !/^(乳牙期|替牙期|恒牙期)/.test(item.name)),
-      ...surgeryAll.filter(item => orthodonticSurgeryNames.has(item.name))
-    ])
+    branch("primary-ortho", "乳牙期主疗程（常规 / 复杂）", [45, 46]),
+    branch("mixed-i", "替牙期 I 类（常规 / 复杂）", [47, 48]),
+    branch("mixed-ii", "替牙期 II 类（常规 / 复杂）", [49, 50]),
+    branch("mixed-iii", "替牙期 III 类（常规 / 复杂）", [51, 52]),
+    branch("permanent-i", "恒牙期 I 类（常规 / 复杂）", [53, 54]),
+    branch("permanent-ii", "恒牙期 II 类（常规 / 复杂）", [55, 56]),
+    branch("permanent-iii", "恒牙期 III 类（常规 / 复杂）", [57, 58]),
+    branch("functional-ortho", "错合畸形功能治疗", [59, 60, 61]),
+    branch("cleft-infant", "新生儿唇腭裂术前治疗", [62]),
+    branch("sleep-apnea", "睡眠呼吸暂停口腔正畸辅助", [63]),
+    branch("local-ortho", "局部正畸", [64], "按象限·疗程；累计金额不得超过全口价，封顶规则待实现。"),
+    branch("retainer", "固定保持器安装 / 拆除", [65, 66]),
+    branch("design", "错合畸形治疗设计", [67]),
+    branch("ortho-surgery", "正畸手术辅助（仅实际实施）", [80, 86, 97, 98, 111, 112], "这些是交叉索引，不是正畸疗程自动附加项目。")
   ]);
 
   const mucosalTreatment = treatment("mucosal-salivary", "黏膜与唾液腺治疗", [
-    branch("mucosal-care", "口腔黏膜治疗", periodontalAll.filter(item => item.name === "口腔黏膜病局部药物治疗费")),
-    branch("salivary-care", "唾液腺治疗", [
-      ...periodontalAll.filter(item => item.name === "唾液腺药物灌注费"),
-      ...surgeryAll.filter(item => /唾液腺导管/.test(item.name))
-    ])
+    branch("mucosal-care", "口腔黏膜病局部药物治疗", [44]),
+    branch("salivary-infusion", "唾液腺药物 / 非药物灌注", [43]),
+    branch("salivary-stone", "唾液腺导管取石", [113]),
+    branch("salivary-duct", "唾液腺导管治疗", [114]),
+    branch("salivary-exam", "唾液腺功能评估", [9])
+  ]);
+
+  const occlusalTreatment = treatment("occlusal-function", "咬合与口腔功能治疗", [
+    branch("occlusal-splint", "咬合板治疗", [32]),
+    branch("occlusal-adjust", "独立调合治疗", [41], "充填或修复中已包含的调合不得另收。"),
+    branch("root-traction", "牙根牵引 / 保留患牙辅助", [42], "适应证和后续治疗组合待院方临床确认。")
+  ]);
+  const crossTreatment = treatment("cross-treatment", "跨治疗辅助项目", [
+    branch("rubber-dam", "橡皮障隔离", [10], "仅真实使用时适用；跨路径收费口径待院方确认。"),
+    branch("no-reflux", "口腔无回吸辅助治疗", [31], "可配合牙齿治疗或口腔外科手术，不属于牙周专有治疗。")
   ]);
 
   window.FJ_TREATMENTS = [
-    rootCanal,
     examinationTreatment,
+    rootCanal,
     restorativeTreatment,
-    periodontalTreatment,
+    periodontalBasic,
+    periodontalSurgery,
     extractionTreatment,
     oralSurgeryTreatment,
     fixedRestorationTreatment,
     removableRestorationTreatment,
     orthodonticTreatment,
-    mucosalTreatment
+    occlusalTreatment,
+    mucosalTreatment,
+    crossTreatment
   ];
 
+  for (const treatmentItem of window.FJ_TREATMENTS) {
+    for (const route of treatmentItem.branches) {
+      for (const step of route.phases) {
+        for (const definition of step.items) {
+          definition.priceEvidenceLevel ||= "A";
+          definition.clinicalEvidenceLevel ||= "C";
+          definition.needsHospitalConfirmation = true;
+        }
+      }
+    }
+  }
+  const coveredCodes = new Set(window.FJ_TREATMENTS.flatMap(item => item.branches.flatMap(type => type.phases.flatMap(step => step.items.map(definition => definition.code)))));
   window.FJ_TREATMENT_COVERAGE = {
-    coveredCodes: [...new Set(window.FJ_TREATMENTS.flatMap(item => item.branches.flatMap(type => type.phases.flatMap(step => step.items.map(definition => definition.code)))))]
+    coveredCodes: [...coveredCodes],
+    unassignedCodes: catalog.filter(item => !coveredCodes.has(item.code)).map(item => item.code),
+    previewBillableBranches: ["root-canal/routine", "root-canal/acute", "root-canal/retreat", "root-canal/foreign"]
   };
 })();
