@@ -3,9 +3,9 @@
   const variants = Array.isArray(window.FJ_VARIANTS) ? window.FJ_VARIANTS : [];
   const treatments = Array.isArray(window.FJ_TREATMENTS) ? window.FJ_TREATMENTS : [];
   const scope = window.FJ_SCOPE;
-  const orderKey = "fujian-oral-itemized-billing-v6";
+  const orderKey = "fujian-oral-itemized-billing-v7";
   const packageKey = "fujian-oral-itemized-packages-v1";
-  const ruleVersion = "fj-2026-45-preview-v5";
+  const ruleVersion = "fj-2026-45-preview-v6";
 
   const el = {
     catalog: document.querySelector("#catalog"),
@@ -47,6 +47,8 @@
     rootLinkNote: document.querySelector("#root-link-note"),
     rootToothType: document.querySelector("#root-tooth-type"),
     rootPatientType: document.querySelector("#root-patient-type"),
+    foreignLocationField: document.querySelector("#foreign-location-field"),
+    foreignLocation: document.querySelector("#foreign-location"),
     rootAnomaly: document.querySelector("#root-anomaly"),
     rootMedication: document.querySelector("#root-medication"),
     workflowTitle: document.querySelector("#workflow-title"),
@@ -82,6 +84,7 @@
   el.diagnosis = diagnosisInput;
   el.diagnosis.value = orderState?.header?.diagnosis || "";
   el.rootCount.value = String(orderState?.rootCount || 3);
+  el.rootPatientType.value = orderState?.context?.age ?? "";
 
   const oldToothInput = el.tooth;
   const toothSelect = document.createElement("select");
@@ -180,6 +183,12 @@
     return Number.isSafeInteger(roots) && roots >= 1 ? roots : 1;
   }
 
+  function patientAge() {
+    const raw = el.rootPatientType.value.trim();
+    const age = Number(raw);
+    return raw !== "" && Number.isSafeInteger(age) && age >= 0 && age <= 120 ? age : null;
+  }
+
   function activePrice(item) {
     return item?.[el.priceTier.value];
   }
@@ -216,10 +225,11 @@
       treatmentId: currentTreatment()?.id || "",
       branchId: currentBranch()?.id || "",
       phaseId: currentPhase()?.id || "",
-      patient: el.rootPatientType.value,
+      age: patientAge(),
       toothType: el.rootToothType.value,
       anomaly: el.rootAnomaly.checked,
       medication: el.rootMedication.checked,
+      foreignLocation: el.foreignLocation.value,
       rootCount: currentRoots(),
       priceTier: el.priceTier.value
     };
@@ -229,8 +239,9 @@
     const context = currentWorkflowContext();
     return {
       treatmentId: context.treatmentId, branchId: context.branchId, phaseId: context.phaseId,
-      patient: context.patient, toothType: context.toothType,
-      anomaly: context.anomaly, medication: context.medication
+      age: context.age, toothType: context.toothType,
+      anomaly: context.anomaly, medication: context.medication,
+      foreignLocation: context.foreignLocation
     };
   }
 
@@ -243,10 +254,11 @@
     syncTreatmentOptions(lockedContext.treatmentId);
     syncBranchOptions(lockedContext.branchId);
     syncPhaseOptions(lockedContext.phaseId);
-    el.rootPatientType.value = lockedContext.patient;
+    el.rootPatientType.value = lockedContext.age ?? "";
     el.rootToothType.value = lockedContext.toothType;
     el.rootAnomaly.checked = lockedContext.anomaly;
     el.rootMedication.checked = lockedContext.medication;
+    el.foreignLocation.value = lockedContext.foreignLocation || "other";
     renderWorkflow();
   }
 
@@ -307,16 +319,18 @@
     el.rootConditions.classList.toggle("is-hidden", !isRootCanal);
     el.rootCountField.classList.toggle("is-hidden", !isRootCanal);
     el.rootLinkNote.classList.toggle("is-hidden", !isRootCanal);
+    el.foreignLocationField.classList.toggle("is-hidden", !isRootCanal || branch?.id !== "foreign");
   }
 
   function matchesWhen(when = {}) {
     const context = {
-      patient: el.rootPatientType.value,
+      age: patientAge(),
       tooth: el.rootToothType.value,
       anomaly: el.rootAnomaly.checked,
-      medication: el.rootMedication.checked
+      medication: el.rootMedication.checked,
+      foreignLocation: el.foreignLocation.value
     };
-    return Object.entries(when).every(([key, value]) => context[key] === value);
+    return Object.entries(when).every(([key, value]) => key === "ageMax" ? context.age !== null && context.age <= value : context[key] === value);
   }
 
   function renderPrintContext() {
@@ -326,6 +340,7 @@
       `病历号：${el.medicalNo.value.trim() || "未填写"}`,
       `治疗：${contextLabels() || "未选择"}`,
       `牙位：${scope.label(currentScope())}`,
+      isRootCanal ? `年龄：${patientAge() ?? "未填写"} 周岁` : "",
       isRootCanal ? `本牙参考根管总数：${currentRoots()} 根` : "",
       `档位：${el.priceTier.options[el.priceTier.selectedIndex].text}`,
       `诊断：${el.diagnosis.value.trim() || "未填写"}`,
@@ -433,6 +448,7 @@
       variantType: item.type || null,
       parentCode: item.type === "add" ? item.parent || null : null,
       baseCode: item.parent || item.code,
+      familyBaseCode: item.parent || item.code,
       scope: scope ? structuredClone(scope) : null,
       treatmentId: currentTreatment()?.id,
       branchId: currentBranch()?.id,
@@ -455,7 +471,12 @@
   }
 
   function entryCodes(entry) {
-    return [entry.catalogCode || entry.code, entry.baseCode].filter(Boolean);
+    return [entry.catalogCode || entry.code, entry.familyBaseCode || entry.baseCode].filter(Boolean);
+  }
+
+  function familyPrimary(baseCode, toothScope = currentScope(), source = entries) {
+    return source.find(entry => entry.kind === "service" && entry.variantType !== "add" &&
+      (entry.familyBaseCode || entry.baseCode || entry.catalogCode) === baseCode && scope.same(entry.scope, toothScope));
   }
 
   function conflictsFor(item) {
@@ -478,6 +499,7 @@
 
   function validateApplicability(item, toothScope = currentScope()) {
     if (!isBillableBranch()) return "该治疗路径尚未完成临床规则审核，目录项目目前仅供查阅。";
+    if (patientAge() === null) return "请先填写患者实际周岁（0–120 的整数），再选择收费项目。";
     const selectedTooth = scope.parse(toothScope);
     if (selectedTooth?.kind === "teeth") {
       const primary = Number(selectedTooth.teeth[0][0]) >= 5;
@@ -485,7 +507,7 @@
     }
     const definition = currentPhase()?.items.find(candidate => candidate.code === item?.code);
     if (!definition || !matchesWhen(definition.when)) return `“${item?.name || "该项目"}”不属于当前治疗路径、就诊环节或患者条件。`;
-    if (item.limit === "未成年人" && el.rootPatientType.value !== "child") return `“${item.name}”仅适用于未成年人。`;
+    if (item.limit === "未成年人" && patientAge() >= 18) return `“${item.name}”仅适用于未成年人。`;
     if (item.parent) {
       const parent = catalog.find(candidate => candidate.code === item.parent);
       if (!parent) return "分项缺少目录主项目。";
@@ -534,13 +556,9 @@
       showToast(`“${item.name}”已在本次明细中。`);
       return;
     }
-    if (!selectedCodes().includes(item.parent)) {
-      const parentName = catalog.find(parent => parent.code === item.parent)?.name || "对应项目";
-      showToast(`请先加入依附主项目“${parentName}”。`);
-      return;
-    }
-    const parentEntry = entries.find(entry => entry.kind === "service" && (entry.catalogCode || entry.code) === item.parent && scope.same(currentScope(), entry.scope));
-    if (!parentEntry) return showToast("请先在当前牙位加入对应主项目；替代项不能作为加收项依附主项。");
+    const parentEntry = familyPrimary(item.parent);
+    if (!parentEntry) return showToast("请先在当前牙位加入对应的主项或扩展替代项。");
+    if (item.type !== "add" && (parentEntry.catalogCode || parentEntry.code) === item.code) return showToast("当前已经采用这一替代项。");
     const targetScope = parentEntry.scope;
     const message = addValidation(item, targetScope, parentEntry.uid);
     if (message) {
@@ -576,7 +594,7 @@
         ? (item.type === "extend" ? activePrice(parentItem) : priceCap(item))
         : null;
       replacement.parentCode = null;
-      entries = entries.filter(entry => entry.uid !== parentEntry.uid && !(entry.kind === "service" && entry.baseCode === item.parent && scope.same(entry.scope, targetScope)));
+      entries = entries.filter(entry => entry.uid !== parentEntry.uid);
       entries.push(replacement);
     }
     afterEntriesChanged();
@@ -587,10 +605,10 @@
     const item = (definition.variant ? variants : catalog).find(candidate => candidate.code === definition.code);
     if (!item) return "";
     const added = workflowAdded(item.code);
-    const parentReady = !definition.variant || entries.some(entry => (entry.catalogCode || entry.code) === item.parent && scope.same(entry.scope, currentScope()));
-    const parent = definition.variant && entries.find(entry => (entry.catalogCode || entry.code) === item.parent && scope.same(entry.scope, currentScope()));
+    const parent = definition.variant ? familyPrimary(item.parent) : null;
+    const parentReady = !definition.variant || Boolean(parent);
     const billable = isBillableBranch();
-    const status = !billable ? "待临床审核" : added ? "已加入" : parentReady ? "加入" : "先加主项";
+    const status = !billable ? "待临床审核" : added ? "已加入" : parentReady ? item.type === "extend" ? "替换主项" : "加入" : "先加主项";
     const quantity = billable && item.rootLinked && item.type !== "extend" ? `<input type="number" min="1" max="${item.type === "add" ? parent?.qty || currentRoots() : currentRoots()}" step="1" inputmode="numeric" placeholder="实际根数" aria-label="${safe(item.name)}实际根管数" data-workflow-qty="${item.code}" ${!parentReady || added ? "disabled" : ""} />` : "";
     return `<div class="workflow-option"><div><strong>${safe(item.name)}${definition.required ? ' <span class="rule-flag">流程参考主项</span>' : ""}</strong><small>${safe(item.code)} · ${safe(item.unit)} · ${safe(definition.reason || "按实际实施情况选择")} · 上限 ${priceLabel(item)}</small><small>项目/价格证据 A（福建附件）；路径适用性 C（待院方确认）。${safe(definition.evidence || "福建附件项目")}；${billable ? "仅内部规则预演" : "当前仅作目录索引，不代表临床可开"}</small></div><div class="workflow-action">${quantity}<button type="button" data-workflow-add="${item.code}" data-workflow-variant="${Boolean(definition.variant)}" ${!billable || added || !parentReady ? "disabled" : ""}>${status}</button></div></div>`;
   }
@@ -623,7 +641,11 @@
     el.workflowBadge.textContent = `${directoryOnly ? "临床规则待审" : treatment.status} · v${treatment.version}`;
     el.workflowNote.textContent = branch.note;
     el.workflowSource.textContent = `规则来源：${treatment.source}`;
-    el.workflowOptions.innerHTML = `<section class="workflow-phase"><h4>${safe(phase.name)}<span>${safe(phase.hint)}</span></h4><div class="workflow-options">${definitions.map(workflowOption).join("") || '<div class="workflow-empty">当前条件没有可选项目。</div>'}</div></section>`;
+    const operations = definitions.filter(definition => !definition.variant || findItem(definition.code)?.type !== "add");
+    const modifiers = definitions.filter(definition => definition.variant && findItem(definition.code)?.type === "add");
+    el.workflowOptions.innerHTML = `<section class="workflow-phase"><h4>${safe(phase.name)}<span>${safe(phase.hint)}</span></h4>` +
+      `<div class="workflow-group"><h5>本次实际操作与替代计价项</h5><p>医生逐项确认实际实施内容；扩展项是替代计价，不是新增一次操作。</p><div class="workflow-options">${operations.map(workflowOption).join("") || '<div class="workflow-empty">当前条件没有可选项目。</div>'}</div></div>` +
+      (modifiers.length ? `<div class="workflow-group"><h5>条件加收（须实际符合并逐项确认）</h5><p>儿童、根管异常或根尖段位置等条件只决定是否显示候选；不会自动加入明细。</p><div class="workflow-options">${modifiers.map(workflowOption).join("")}</div></div>` : "") + `</section>`;
     renderPrintContext();
   }
 
@@ -639,16 +661,28 @@
     el.breakdown.innerHTML = `<span>技术费 <b>${money(tech)}</b></span><span>耗材费 <b>${money(consumables)}</b></span>`;
   }
 
+  function syncLiveLineAmounts() {
+    entries.forEach(entry => {
+      const row = [...el.lineArea.querySelectorAll("tbody tr")].find(candidate => candidate.querySelector("[data-quantity]")?.dataset.quantity === entry.uid);
+      if (!row) return;
+      const quantityInput = row.querySelector("[data-quantity]");
+      if (quantityInput && quantityInput.value !== String(entry.qty)) quantityInput.value = String(entry.qty);
+      const subtotal = row.querySelector("[data-line-subtotal]");
+      if (subtotal) subtotal.textContent = money(entry.qty * entry.price);
+    });
+  }
+
   function quantityLimit(entry) {
     if (!entry.rootLinked) return Infinity;
-    const parent = entry.parentCode && entries.find(candidate => (candidate.catalogCode || candidate.code) === entry.parentCode && scope.same(candidate.scope, entry.scope));
+    const parent = entry.variantType === "add" ? familyPrimary(entry.familyBaseCode || entry.baseCode, entry.scope) : null;
     return Math.min(entry.rootCount, parent?.qty ?? Infinity);
   }
 
   function setEntryQuantity(entry, quantity) {
     if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > quantityLimit(entry)) return false;
     entry.qty = quantity;
-    entries.filter(candidate => candidate.parentCode === (entry.catalogCode || entry.code) && scope.same(candidate.scope, entry.scope))
+    entries.filter(candidate => candidate.variantType === "add" &&
+      (candidate.familyBaseCode || candidate.baseCode) === (entry.familyBaseCode || entry.baseCode) && scope.same(candidate.scope, entry.scope))
       .forEach(candidate => { candidate.qty = Math.min(candidate.qty, quantity); });
     return true;
   }
@@ -671,7 +705,7 @@
       const kindClass = entry.kind !== "service" ? " consume" : ["reduce", "extend"].includes(entry.variantType) ? " replace" : "";
       const code = entry.kind === "service" ? entry.code : "机构耗材目录";
       const cap = entry.kind === "service" && Number.isFinite(entry.cap) ? entry.cap : null;
-      return `<tr><td class="name-cell"><div class="service-name"><span class="type-chip${kindClass}">${kind}</span>${safe(entry.name)}</div></td><td><span class="item-code">${safe(code)} · ${safe(entry.unit)}</span></td><td><span class="scope-label">${safe(scope.label(entry.scope))}</span></td><td><input class="qty-input" type="number" min="1" ${entry.rootLinked ? `max="${entry.rootCount}"` : ""} step="1" value="${entry.qty}" data-quantity="${entry.uid}" aria-label="${safe(entry.name)}数量" /></td><td class="money"><input class="price-input" type="number" min="0" max="${cap ?? ""}" step="0.01" value="${entry.price}" data-price="${entry.uid}" aria-label="${safe(entry.name)}单价" />${cap !== null ? `<span class="cap-note">上限 ${money(cap)}</span>` : ""}</td><td class="money">${money(entry.qty * entry.price)}</td><td><button class="remove" type="button" data-remove="${entry.uid}" aria-label="删除${safe(entry.name)}">×</button></td></tr>`;
+      return `<tr><td class="name-cell"><div class="service-name"><span class="type-chip${kindClass}">${kind}</span>${safe(entry.name)}</div></td><td><span class="item-code">${safe(code)} · ${safe(entry.unit)}</span></td><td><span class="scope-label">${safe(scope.label(entry.scope))}</span></td><td><input class="qty-input" type="number" min="1" ${entry.rootLinked ? `max="${entry.rootCount}"` : ""} step="1" value="${entry.qty}" data-quantity="${entry.uid}" aria-label="${safe(entry.name)}数量" /></td><td class="money"><input class="price-input" type="number" min="0" max="${cap ?? ""}" step="0.01" value="${entry.price}" data-price="${entry.uid}" aria-label="${safe(entry.name)}单价" />${cap !== null ? `<span class="cap-note">上限 ${money(cap)}</span>` : ""}</td><td class="money" data-line-subtotal="${entry.uid}">${money(entry.qty * entry.price)}</td><td><button class="remove" type="button" data-remove="${entry.uid}" aria-label="删除${safe(entry.name)}">×</button></td></tr>`;
     }).join("")}</tbody></table></div>`;
   }
 
@@ -720,8 +754,8 @@
       if (!Number.isSafeInteger(Number(entry.qty)) || Number(entry.qty) < 1) return `“${entry.name}”数量必须是实际实施的正整数。`;
       if (item.rootLinked && (entry.rootLinked !== true || !Number.isSafeInteger(entry.rootCount) || entry.qty > entry.rootCount)) return `“${entry.name}”实际处理根管数不能超过本牙参考根管总数。`;
       if (item.type === "add") {
-        const parent = candidateEntries.find(other => (other.catalogCode || other.code) === item.parent && scope.same(other.scope, entry.scope));
-        if (!parent) return `加收项“${entry.name}”缺少同牙位主项目，替代项不能作为其主项。`;
+        const parent = familyPrimary(item.parent, entry.scope, candidateEntries);
+        if (!parent) return `加收项“${entry.name}”缺少同牙位主项或扩展替代项。`;
         if (item.unit === "根管" && entry.qty > parent.qty) return `加收项“${entry.name}”根管数量不能超过主项目实际数量。`;
       }
     }
@@ -749,7 +783,7 @@
     const missing = missingCoreItems(candidateEntries);
     if (missing.length && !window.confirm(`当前阶段缺少临床流程参考主项：${missing.join("、")}。该流程归类尚待医院确认。\n仍要${actionLabel}吗？`)) return false;
     const hasIrrigation = candidateEntries.some(entry => ["013105010060000", "013105010060100"].includes(entry.catalogCode || entry.code));
-    if (hasIrrigation && !window.confirm(`根管冲洗/封药的计价单位为“根管”，但同次多根管如何计次仍待福建医院医保物价部门确认。当前数量仅供内部模拟，不可据此正式收费。\n继续${actionLabel}吗？`)) return false;
+    if (hasIrrigation && !window.confirm(`根管冲洗/封药按附件的“根管”单位及本次实际处理根管数填写，请复核每项数量。当前临床路径仍待院方确认，仅用于内部体验。\n继续${actionLabel}吗？`)) return false;
     return true;
   }
 
@@ -926,8 +960,14 @@
     guardRouteChange();
   });
 
-  [el.phaseSelect, el.rootToothType, el.rootPatientType, el.rootAnomaly, el.rootMedication]
+  [el.phaseSelect, el.rootToothType, el.rootPatientType, el.rootAnomaly, el.rootMedication, el.foreignLocation]
     .forEach(node => node.addEventListener("change", guardRouteChange));
+
+  el.rootPatientType.addEventListener("input", () => {
+    if (entries.length) return;
+    renderWorkflow();
+    saveEntries();
+  });
 
   el.rootCount.addEventListener("change", () => {
     const roots = currentRoots();
@@ -989,6 +1029,7 @@
       entry.tierLinked = false;
       saveEntries();
       updateTotalsSummary();
+      syncLiveLineAmounts();
       return;
     }
 
@@ -999,6 +1040,7 @@
     if (!entry || !setEntryQuantity(entry, quantity)) return;
     saveEntries();
     updateTotalsSummary();
+    syncLiveLineAmounts();
   });
 
   el.lineArea.addEventListener("change", event => {
@@ -1072,11 +1114,10 @@
     if (!button) return;
     const removed = entries.find(entry => entry.uid === button.dataset.remove);
     if (!removed) return;
-    const removedCode = removed.catalogCode || removed.code;
-    const removedBase = removed.baseCode || removedCode;
     entries = removed.variantType === "add"
       ? entries.filter(entry => entry.uid !== removed.uid)
-      : entries.filter(entry => entry.uid !== removed.uid && entry.parentCode !== removedCode && entry.parentCode !== removedBase);
+      : entries.filter(entry => entry.uid !== removed.uid && !(entry.variantType === "add" &&
+        (entry.familyBaseCode || entry.baseCode) === (removed.familyBaseCode || removed.baseCode) && scope.same(entry.scope, removed.scope)));
     afterEntriesChanged();
     showToast("已删除该明细及其依附分项。");
   });
@@ -1150,10 +1191,11 @@
   syncBranchOptions(lockedContext?.branchId);
   syncPhaseOptions(lockedContext?.phaseId);
   if (lockedContext) {
-    el.rootPatientType.value = lockedContext.patient;
+    el.rootPatientType.value = lockedContext.age ?? "";
     el.rootToothType.value = lockedContext.toothType;
     el.rootAnomaly.checked = lockedContext.anomaly;
     el.rootMedication.checked = lockedContext.medication;
+    el.foreignLocation.value = lockedContext.foreignLocation || "other";
   }
   if (entries.length && validateOrder()) {
     entries = [];

@@ -28,7 +28,7 @@
   const treatment = (id, name, branches) => ({
     id,
     name,
-    version: 3,
+    version: 4,
     status: "目录分类",
     source: "《闽医保〔2026〕45号》附件一确定项目名称与价格；治疗路径归类为待审模板，不自动生成收费候选",
     conditions: [],
@@ -38,20 +38,21 @@
   const rootCanal = {
     id: "root-canal",
     name: "牙髓与根尖治疗（含根管）",
-    version: 3,
+    version: 4,
     status: "临床流程待确认",
     source: "《闽医保〔2026〕45号》附件一；医院后台旧套餐仅作操作示例，不作为新政策计量依据",
     conditions: [
-      { id: "patient", label: "患者条件", type: "select", options: [{ value: "adult", label: "成人" }, { value: "child", label: "儿童（≤6周岁）" }] },
+      { id: "age", label: "实际周岁", type: "integer", min: 0, max: 120 },
       { id: "tooth", label: "牙体类型", type: "select", options: [{ value: "permanent", label: "恒牙" }, { value: "primary", label: "乳牙" }] },
       { id: "anomaly", label: "根管异常", type: "boolean" },
-      { id: "medication", label: "本次需要根管封药", type: "boolean" }
+      { id: "medication", label: "本次实际实施根管封药", type: "boolean" },
+      { id: "foreignLocation", label: "异物位置", type: "select", options: [{ value: "other", label: "非根尖段" }, { value: "apical", label: "根尖段" }] }
     ],
     branches: [
       {
         id: "routine",
         name: "常规根管治疗",
-        note: "本次实际做了哪些操作就选哪些。冲洗/封药的计价单位为根管，但同次多根管如何计次仍待福建院方确认；当前仅按医生逐项填写的实际数量演示，不自动带入。",
+        note: "医生确认本次实际实施的操作及各项实际处理根管数。冲洗与封药均按附件的“根管”单位计量；封药扩展项替代冲洗主项，不重复开立。临床路径仍待院方复核。",
         phases: [
           {
             id: "current-visit",
@@ -61,15 +62,15 @@
               { code: "012406000010000", reason: "实际完成牙髓活力检查时选择", evidence: "福建附件主项目" },
               { code: "013105010010000", reason: "实际使用橡皮障时选择", evidence: "福建附件主项目" },
               { code: "013105010030000", reason: "实际实施牙髓失活时选择", evidence: "福建附件主项目" },
-              { code: "013105010030001", variant: true, when: { patient: "child" }, reason: "儿童牙髓失活加收", evidence: "福建附件加收项" },
+              { code: "013105010030001", variant: true, when: { ageMax: 6 }, reason: "6周岁及以下儿童牙髓失活加收；须确认实际适用", evidence: "福建附件加收项" },
               { code: "013105010050000", reason: "按本次实际预备的根管数计量", evidence: "福建附件主项目" },
-              { code: "013105010050001", variant: true, when: { patient: "child" }, reason: "儿童根管预备加收", evidence: "福建附件加收项" },
-              { code: "013105010050011", variant: true, when: { anomaly: true }, reason: "根管异常加收", evidence: "福建附件加收项" },
+              { code: "013105010050001", variant: true, when: { ageMax: 6 }, reason: "6周岁及以下儿童根管预备加收；须确认实际适用", evidence: "福建附件加收项" },
+              { code: "013105010050011", variant: true, when: { anomaly: true }, reason: "仅按实际异常的根管数加收", evidence: "福建附件加收项" },
               { code: "013105010060000", reason: "按本次实际冲洗的根管数计量", evidence: "福建附件主项目第15项，计价单位为根管" },
               { code: "013105010060100", variant: true, when: { medication: true }, reason: "实际实施封药时替代冲洗项目，按根管计量", evidence: "福建附件扩展项，计价单位为根管" },
               { code: "013105010070000", reason: "按本次实际充填的根管数计量", evidence: "福建附件主项目" },
-              { code: "013105010070001", variant: true, when: { patient: "child" }, reason: "儿童根管充填加收", evidence: "福建附件加收项" },
-              { code: "013105010070011", variant: true, when: { anomaly: true }, reason: "根管异常加收", evidence: "福建附件加收项" },
+              { code: "013105010070001", variant: true, when: { ageMax: 6 }, reason: "6周岁及以下儿童根管充填加收；须确认实际适用", evidence: "福建附件加收项" },
+              { code: "013105010070011", variant: true, when: { anomaly: true }, reason: "仅按实际异常的根管数加收", evidence: "福建附件加收项" },
               { code: "013105010070100", variant: true, when: { tooth: "primary" }, reason: "乳牙根管充填扩展项", evidence: "福建附件扩展项" }
             ]
           }
@@ -86,7 +87,7 @@
           items: [
             { code: "012406000010000", reason: "实际完成牙髓活力检查时选择", evidence: "福建附件主项目" },
             { code: "013105010020000", required: true, reason: "仅牙髓急症开髓引流", evidence: "福建附件主项目" },
-            { code: "013105010020001", variant: true, when: { patient: "child" }, reason: "儿童开髓引流加收", evidence: "福建附件加收项" }
+            { code: "013105010020001", variant: true, when: { ageMax: 6 }, reason: "6周岁及以下儿童开髓引流加收；须确认实际适用", evidence: "福建附件加收项" }
           ]
         }]
       },
@@ -113,12 +114,13 @@
           hint: "选择实际实施项目",
           items: [
             { code: "013105010090000", required: true, reason: "按实际根管数计量", evidence: "福建附件主项目" },
-            { code: "013105010090001", variant: true, reason: "仅根尖段异物取出时加收", evidence: "福建附件加收项" }
+            { code: "013105010090001", variant: true, when: { foreignLocation: "apical" }, reason: "仅根尖段异物取出时加收", evidence: "福建附件加收项" }
           ]
         }]
       },
       branch("apical-induction", "根尖诱导成形", [81], "非根尖外科手术；治疗适用条件待院方确认。"),
-      branch("apical-barrier", "根尖屏障 / 髓腔穿孔修补", [82], "扩展项替代主项，临床路径待院方确认。"),
+      branch("apical-barrier", "根尖屏障", [82], "扩展项为髓腔穿孔修补，应进入独立临床路径；当前仅目录查阅。"),
+      branch("perforation-repair", "髓腔穿孔修补", [82], "同一价格项目家族的另一临床路径；扩展项替代主项，待院方确认。"),
       branch("apical-surgery", "根尖外科手术", [83]),
       branch("pulp-preservation", "活髓保存 / 盖髓", [19]),
       branch("pulp-regeneration", "牙髓再生", [20]),
@@ -146,7 +148,7 @@
     branch("polishing", "牙面抛光", [36]),
     branch("sandblasting", "牙面喷砂", [37]),
     branch("subgingival", "龈下刮治", [38]),
-    branch("root-planing", "根面平整（非手术）", [106], "与同牙本次牙周翻瓣及同部位牙周冲洗上药存在附件限制。"),
+    branch("root-planing", "根面平整（非手术）", [106], "与同牙本次牙周翻瓣、龈下刮治及同部位牙周冲洗上药存在附件限制。"),
     branch("periodontal-irrigation", "牙周冲洗上药", [33]),
     branch("periodontal-dressing", "牙周塞治 / 局部止血", [34]),
     branch("splinting", "松牙固定 / 拆除", [39, 40])
@@ -159,7 +161,7 @@
     branch("fiberotomy", "牙周纤维环状切断", [111], "可作为正畸辅助操作交叉引用，实际适应证待院方确认。")
   ]);
 
-  const extractionTreatment = treatment("extraction", "拔牙与拔牙创处理", [
+  const extractionTreatment = treatment("extraction", "拔牙、阻生牙与拔牙创处置", [
     branch("simple-extraction", "普通牙拔除", [84], "乳牙同编码条件价11元；同部位不得再收儿童加收，当前仅查阅。"),
     branch("impacted-extraction", "阻生牙拔除", [85]),
     branch("impacted-eruption", "阻生牙开窗助萌（保留牙）", [86], "不是阻生牙拔除的附加项目；正畸路径可交叉引用。"),
@@ -199,7 +201,7 @@
     branch("full-denture", "全口义齿", [72]),
     branch("acrylic-denture", "胶连可摘局部义齿", [73]),
     branch("cast-denture", "铸造支架可摘局部义齿", [74]),
-    branch("jaw-prosthesis", "颌骨 / 颞部缺损赝复体", [75, 76], "常规与复杂是不同条件类型，不能默认并收。"),
+    branch("jaw-prosthesis", "颌骨 / 腭部缺损赝复体", [75, 76], "常规与复杂是不同条件类型，不能默认并收。"),
     branch("face-prosthesis", "面部缺损赝复体", [77])
   ]);
 
@@ -230,12 +232,12 @@
 
   const occlusalTreatment = treatment("occlusal-function", "咬合与口腔功能治疗", [
     branch("occlusal-splint", "咬合板治疗", [32]),
-    branch("occlusal-adjust", "独立调合治疗", [41], "充填或修复中已包含的调合不得另收。"),
-    branch("root-traction", "牙根牵引 / 保留患牙辅助", [42], "适应证和后续治疗组合待院方临床确认。")
+    branch("occlusal-adjust", "独立调合治疗", [41], "充填或修复中已包含的调合不得另收。")
   ]);
   const crossTreatment = treatment("cross-treatment", "跨治疗辅助项目", [
     branch("rubber-dam", "橡皮障隔离", [10], "仅真实使用时适用；跨路径收费口径待院方确认。"),
-    branch("no-reflux", "口腔无回吸辅助治疗", [31], "可配合牙齿治疗或口腔外科手术，不属于牙周专有治疗。")
+    branch("no-reflux", "口腔无回吸辅助治疗", [31], "可配合牙齿治疗或口腔外科手术，不属于牙周专有治疗。"),
+    branch("root-traction", "患牙保留辅助：牙根牵引", [42], "适应证和后续治疗组合待院方临床确认；不归入咬合功能治疗。")
   ]);
 
   window.FJ_TREATMENTS = [
